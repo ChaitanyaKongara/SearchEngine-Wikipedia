@@ -14,16 +14,19 @@ pattern = {
 page_count = 1
 word_count = 1
 index_cnt = 0
+total_tokens_dump = 0
+total_tokens_index = 0
+index_word_size_division = 1 
 temp_dir = "XtempX/"
 # subprocess.check_call([sys.executable, "-m", "pip", "install", "sortedcontainers"])
 from sortedcontainers import SortedDict, SortedList
 
 inverted_index = SortedDict()
-
+title_file = open("title_map", "w")
+title_id = []
 def text_processing(text):
-    # tokens = re.sub(r"`|~|!|@|#|\$|%|\^|&|\*|\(|\)|-|_|=|\+|\||\\|\[|\]|\{|\}|;|:|'|\"|,|<|>|\.|/|\?|\n|\t", " ", text) # remove non alphanumeric
-    tokens = re.sub(r"\W|_", " ", text) # remove non alphanumeric
-    tokens = [ token for token in tokens.split() if token not in STOP_WORDS and len(token) > 2 ]
+    tokens = re.sub(r"\W|_", " ", text.encode("ascii", "ignore").decode()) # remove non alphanumeric
+    tokens = [ token for token in tokens.split() if token not in STOP_WORDS and len(token) > 2 and not token[0].isnumeric() and not token[1].isnumeric() ]
     return Stemmer.Stemmer("english").stemWords(tokens)
 
 def extract_field(field, text):
@@ -111,15 +114,17 @@ def write_inverted_index_to_file(index_cnt):
         content.append("".join([line,'\n']))
     os.makedirs(temp_dir, exist_ok=True)
     with open(file_name, "w") as file:
-        file.writelines(content)
+        if len(content):
+            file.writelines(content)
 
 def close_files(fds):
     for fd in fds:
         fd.close()
 
 def merge_indices(index_cnt):
+    print("index_cnt", index_cnt)
+    global total_tokens_index
     file_name = temp_dir
-    inverted_index_name = "".join([sys.argv[2],"/index"])
     pq = SortedList()
     open_temp_files = []
     for idx in range(index_cnt):
@@ -128,29 +133,42 @@ def merge_indices(index_cnt):
         if len(word):
             pq.add((word, idx))
     os.makedirs(sys.argv[2], exist_ok=True)
-    with open(inverted_index_name, "w") as index_file:
-        lines_cnt = 0
-        lines = []
-        while len(pq):
-            top = pq.pop(0)
-            word = top[0]
-            line = "\n".join([top[0], open_temp_files[top[1]].readline()[:-1]])
-            while len(pq) and pq[0][0] == word:
-                top = pq.pop(0)
-                line = ";".join([line, open_temp_files[top[1]].readline()[:-1]])
-                new_word = open_temp_files[top[1]].readline()[:-1]
-                if len(new_word):
-                    pq.add((new_word, top[1]))
-            lines_cnt += 1
-            lines.append("".join([line,"\n"]))
-            if lines_cnt % 10000:
-                index_file.writelines(lines)
-                lines.clear()
-            new_word = open_temp_files[top[1]].readline()[:-1]
+    lines_cnt = 0
+    index_file_name = pq[0][0][:index_word_size_division]
+    index_file = open("".join([sys.argv[2], f"/{index_file_name}"]), "w")
+    lines = []
+    while len(pq):
+        top = pq.pop(0)
+        word = top[0]
+        if word[:index_word_size_division] != index_file_name:
+            index_file.writelines(lines)
+            index_file.close()
+            lines.clear()
+            lines_cnt = 0
+            index_file_name = word[:index_word_size_division]
+            index_file = open("".join([sys.argv[2], f"/{index_file_name}"]), "w")
+        line = "\n".join([top[0][index_word_size_division:], open_temp_files[top[1]].readline()[:-1]])
+        while len(pq) and pq[0][0] == word:
+            top_ = pq.pop(0)
+            line = ";".join([line, open_temp_files[top_[1]].readline()[:-1]])
+            new_word = open_temp_files[top_[1]].readline()[:-1]
             if len(new_word):
-                pq.add((new_word, top[1]))
+                pq.add((new_word, top_[1]))
+        total_tokens_index += 1
+        lines_cnt += 1
+        lines.append("".join([line,"\n"]))
+        if lines_cnt % 10000:
+            index_file.writelines(lines)
+            lines.clear()
+        new_word = open_temp_files[top[1]].readline()[:-1]
+        if len(new_word):
+            pq.add((new_word, top[1]))
     close_files(open_temp_files)
-    shutil.rmtree(temp_dir)
+    # shutil.rmtree(temp_dir)
+    if len(lines):
+        index_file.writelines(lines)
+        lines.clear()
+    index_file.close()
 
 class WikiArticleHandler(xml.sax.ContentHandler):
     def startElement(self, tag, attributes):
@@ -173,30 +191,43 @@ class WikiArticleHandler(xml.sax.ContentHandler):
             self.id = content
 
     def endElement(self, tag):
-        global inverted_index, index_cnt, inline_references, page_count, word_count, pattern
+        global inverted_index, index_cnt, inline_references, total_tokens_dump, page_count, word_count, pattern
         if tag == "page":
+            title_id.append("".join(["".join([str(self.id),"\n"]), "".join([self.title.strip(), "\n"])]))
             page_field = extract_fields(self.text)
             page_field["t"] = text_processing(self.title)
             page_field["id"] = self.id
             self.id = None
-            # for key in page_field:
-            #     print(key, ": ", page_field[key])
-            #     word_count += len(page_field[key])
             update_inverted_index(page_field)
             if page_count % 50000 == 0:
+                title_file.writelines(title_id)
+                title_id.clear()
                 write_inverted_index_to_file(index_cnt)
                 index_cnt += 1
                 inverted_index.clear()
             page_count += 1
+        if tag == "title":
+            total_tokens_dump += len(tuple(re.finditer(r"\s",self.title)))
+        if tag == "text":
+            total_tokens_dump += len(tuple(re.finditer(r"\s",self.text)))
 
 def main():
     if len(sys.argv) < 4:
         sys.exit("ERR: Too few arguments")
-    global index_cnt
+    global index_cnt, inverted_index
     wiki_dump = bz2.open(sys.argv[1])
     xml.sax.parse(wiki_dump, WikiArticleHandler())
+    title_file.writelines(title_id)
+    title_id.clear()
+    write_inverted_index_to_file(index_cnt)
+    index_cnt += 1
+    inverted_index.clear()
     print("wc:", word_count)
     print("pc:", page_count)
-    merge_indices(index_cnt)
+    merge_indices(index_cnt=9)
+    title_file.close()
+    file = open(f"{sys.argv[3]}", "w")
+    file.writelines("".join(["".join([str(total_tokens_dump),"\n"]), "".join([str(total_tokens_index), "\n"])]))
+    file.close()
 if __name__ == '__main__':
     main()
