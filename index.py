@@ -35,7 +35,7 @@ pattern = {
     "ls": "== ?external links ?==",
 }
 page_count = 1
-word_count = 1
+word_count = 0
 index_cnt = 0
 total_tokens_dump = 0
 total_tokens_index = 0
@@ -125,10 +125,11 @@ def extract_fields(text):
 
 
 def update_inverted_index(page_field):
-    global inverted_index
+    global inverted_index, word_count
     for field in page_field:
         if field == "id":
             continue
+        word_count += len(page_field[field])
         for word in page_field[field]:
             if not inverted_index.__contains__(word):
                 inverted_index[word] = {page_field["id"]: {field: 0}}
@@ -240,17 +241,19 @@ class WikiArticleHandler(xml.sax.ContentHandler):
     def endElement(self, tag):
         global inverted_index, index_cnt, inline_references, total_tokens_dump, page_count, word_count, pattern
         if tag == "page":
-            title_id.append(
-                "".join(
-                    ["".join([str(self.id), ":"]), "".join([self.title.strip(), "\n"])]
-                )
-            )
             page_field = extract_fields(self.text)
             page_field["t"] = text_processing(self.title)
             page_field["id"] = self.id
-            self.id = None
             update_inverted_index(page_field)
-            if page_count % 100000 == 0:
+            title_id.append(
+                ":".join(
+                    [str(self.id), str(word_count), "".join([self.title.strip(), "\n"])]
+                )
+            )
+            word_count = 0
+            self.id = None
+            if page_count % 10000 == 0:
+                print("Dealt with article", page_count)
                 title_file.writelines(title_id)
                 title_id.clear()
                 write_inverted_index_to_file(index_cnt)
