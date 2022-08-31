@@ -247,7 +247,22 @@ class WikiArticleHandler(xml.sax.ContentHandler):
             update_inverted_index(page_field)
             title_id.append(
                 ":".join(
-                    [str(self.id), str(word_count), "".join([self.title.strip(), "\n"])]
+                    [
+                        str(self.id),
+                        str(word_count),
+                        "".join(
+                            [
+                                re.sub(
+                                    r"\\",
+                                    " ",
+                                    self.title
+                                    .encode("ascii", "ignore")
+                                    .decode().strip(),
+                                ),
+                                "\n",
+                            ]
+                        ),
+                    ]
                 )
             )
             word_count = 0
