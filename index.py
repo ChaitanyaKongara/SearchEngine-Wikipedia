@@ -61,6 +61,7 @@ def text_processing(text):
         and not token[0].isnumeric()
         and not token[1].isnumeric()
         and not token.isnumeric()
+        and len(token) < 13
     ]
     return Stemmer.Stemmer("english").stemWords(tokens)
 
