@@ -51,7 +51,7 @@ word_file = INDEX_DIR + "/" + "word_position"
 title_file = INDEX_DIR + "/" + "title_position"
 word_positions = dict()
 title_positions = dict()
-doc_wc = dict()
+
 
 def get_bytesperline():
     start = time.time()
@@ -88,6 +88,7 @@ def get_bytesperline():
             bytes_until_line[26].append(bytes_until_line[26][-1] + int(line))
 
 
+
 def prefetch():
     global word_positions, title_positions
     start = time.time()
@@ -106,8 +107,7 @@ def prefetch():
                 dele.add(line[0])
                 line = fd.readline()
                 continue
-            title_positions[line[0]] = int(line[1])
-            doc_wc[line[0]] = int(line[2])
+            title_positions[line[0]] = [int(line[1]), int(line[2])]
             line = fd.readline()
         for item in dele:
             del title_positions[item]
@@ -246,6 +246,20 @@ def calculate_value(prefix):
 #
 #
 
+def split(string):
+    idx = 0
+    text = ""
+    data = []
+    while idx < len(string):
+        if string[idx].isnumeric():
+            text = "".join([text, string[idx]])
+        else:
+            data.append(text)
+            text = string[idx]
+        idx += 1
+    data.append(text)
+    return data
+
 @lru_cache(maxsize=10000)
 def get_value_word(word):
     global word_positions
@@ -258,15 +272,15 @@ def get_value_word(word):
         fd.seek(seek_value)
         value = fd.readline()
         # print("--", word, "->", value)
-        return [pslist.split() for pslist in value[:-1].split(";")]
+        return [split(pslist) for pslist in value[:-1].split(";")]
 
 
-@lru_cache(maxsize=10000)
+@lru_cache(maxsize=200000)
 def get_value_title(id):
     global title_positions
     if id not in title_positions:
         return [0, ""]
-    seek_value = title_positions[id]
+    seek_value = title_positions[id][0]
     with open("/".join([INDEX_DIR, "title_map"]), "r") as fd:
         fd.seek(seek_value)
         return fd.readline()[:-1].split(":", 1)
@@ -286,7 +300,7 @@ def get_tfidf_vectors(word_field_freq):
                 continue
             wc = 0
             extra = 0
-            wc_in_doc = int(doc_wc[doc_data[0]]) if doc_data[0] in doc_wc else 0
+            wc_in_doc = title_positions[doc_data[0]][1]
             if wc_in_doc == 0:
                 continue
             if doc_data[0] not in tfidf_vectors:
