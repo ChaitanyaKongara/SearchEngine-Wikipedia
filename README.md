@@ -1,6 +1,6 @@
 # Search-Engine-Wikipedia
 
-This Repository contains of code for building a search engine from scratch. 
+This Repository consists of code for building a search engine from scratch. 
 
 <br/>
 
@@ -21,9 +21,9 @@ Inorder to perform Search run the command:
 g++ -w search.cpp && ./a.out <i>path_to_index_dir</i> 
 </pre>
 
-Advanced Search:
+## Advanced Search
 
-Wikipedia Artical Consists of following fields
+Wikipedia Article Consists of the following fields
 * Title - `t`
 * Body - `b`
 * Category - `c`
@@ -31,12 +31,15 @@ Wikipedia Artical Consists of following fields
 * References - `r`
 * External Links - `l`
 
-Plain query
-` Messi, Barcelona`
+#### Plain query
 
-Field query
-`rohit c: cricket b: ipl`
+`rohit cricket ipl`
 
+#### Field query
+
+`rohit c: cricket b: ipl` - prioritizes documents with `cricket` in category and `ipl` in body.
+
+---
 C++ Stemmer used [Oleander Stemming Library](https://github.com/OleanderSoftware/OleanderStemmingLibrary)
 
 C++ Thread Pool used [Thread Pool](https://github.com/progschj/ThreadPool)
