@@ -18,7 +18,7 @@ Inorder to build the Index run the command:
 * Search Phase <br/>
 Inorder to perform Search run the command:
 <pre>
-g++ -w search.cpp -std=c++17 && ./a.out <i>path_to_index_dir</i> 
+g++ -w search.cpp && ./a.out <i>path_to_index_dir</i> 
 </pre>
 
 Advanced Search:
