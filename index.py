@@ -47,6 +47,7 @@ from sortedcontainers import SortedDict, SortedList
 inverted_index = SortedDict()
 title_file = open("title_map", "w")
 title_id = []
+at_first_id_tag = True
 
 
 def text_processing(text):
@@ -103,7 +104,8 @@ def extract_fields(text):
     rest_text = text[min(ref_index, links_index) :]
     page_field["i"], infobox_text = extract_field("i", infobox_text)
     page_field["b"] = text_processing(
-        re.sub("\{.*?\}|\[.*?\]|\=\=.*?\=\=", "", infobox_text)
+        # re.sub("\{.*?\}|\[.*?\]|\=\=.*?\=\=", "", infobox_text)
+        infobox_text
     )
     page_field["c"], rest_text = extract_field("c", rest_text)
     if ref_index != len(text) and links_index != len(text):
@@ -112,15 +114,20 @@ def extract_fields(text):
         page_field["r"], rest_text_ref = extract_field("r", rest_text_ref)
         page_field["l"], rest_text_links = extract_field("l", rest_text_links)
         page_field["b"] += text_processing(
-            re.sub("\{.*?\}|\[.*?\]|\=\=.*?\=\=", "", rest_text_ref)
-        ) + text_processing(re.sub("\{.*?\}|\[.*?\]|\=\=.*?\=\=", "", rest_text_links))
+            # re.sub("\{.*?\}|\[.*?\]|\=\=.*?\=\=", "", rest_text_ref)
+            rest_text_ref
+        ) + text_processing(
+            # re.sub("\{.*?\}|\[.*?\]|\=\=.*?\=\=", "", rest_text_links)
+            rest_text_links
+        )
     else:
         if ref_index != len(text):
             page_field["r"], rest_text = extract_field("r", rest_text)
         elif links_index != len(text):
             page_field["l"], rest_text = extract_field("l", rest_text)
         page_field["b"] += text_processing(
-            re.sub("\{.*?\}|\[.*?\]|\=\=.*?\=\=", "", rest_text)
+            # re.sub("\{.*?\}|\[.*?\]|\=\=.*?\=\=", "", rest_text)
+            rest_text
         )
     return page_field
 
@@ -220,6 +227,8 @@ def merge_indices(index_cnt):
 
 
 class WikiArticleHandler(xml.sax.ContentHandler):
+    at_first_id_tag = False
+
     def startElement(self, tag, attributes):
         global inline_references
         self.tag = tag
@@ -230,14 +239,20 @@ class WikiArticleHandler(xml.sax.ContentHandler):
             self.title = ""
         elif tag == "text":
             self.text = ""
+        elif tag == "id":
+            if not self.at_first_id_tag:
+                self.at_first_id_tag = True
+                self.id = ""
+            else:
+                self.at_first_id_tag = False
 
     def characters(self, content):
         if self.tag == "title":
             self.title = "".join([self.title, content.lower()])
         elif self.tag == "text":
             self.text = "".join([self.text, content.lower()])
-        elif self.tag == "id" and self.id == None:
-            self.id = content
+        elif self.tag == "id" and self.at_first_id_tag:
+            self.id = "".join([self.id, content.lower()])
 
     def endElement(self, tag):
         global inverted_index, index_cnt, inline_references, total_tokens_dump, page_count, word_count, pattern
@@ -256,9 +271,9 @@ class WikiArticleHandler(xml.sax.ContentHandler):
                                 re.sub(
                                     r"\\",
                                     " ",
-                                    self.title
-                                    .encode("ascii", "ignore")
-                                    .decode().strip(),
+                                    self.title.encode("ascii", "ignore")
+                                    .decode()
+                                    .strip(),
                                 ),
                                 "\n",
                             ]
@@ -276,10 +291,15 @@ class WikiArticleHandler(xml.sax.ContentHandler):
                 index_cnt += 1
                 inverted_index.clear()
             page_count += 1
-        if tag == "title":
+        elif tag == "title":
             total_tokens_dump += len(tuple(re.finditer(r"\s", self.title)))
-        if tag == "text":
+        elif tag == "text":
             total_tokens_dump += len(tuple(re.finditer(r"\s", self.text)))
+        elif tag == "id":
+            if not self.at_first_id_tag:
+                self.at_first_id_tag = True
+            else:
+                self.at_first_id_tag = False
 
 
 def main():

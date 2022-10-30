@@ -1,0 +1,6 @@
+[submodule "OleanderStemmingLibrary"]
+	path = OleanderStemmingLibrary
+	url = https://github.com/OleanderSoftware/OleanderStemmingLibrary
+[submodule "ThreadPool"]
+	path = ThreadPool
+	url = https://github.com/progschj/ThreadPool

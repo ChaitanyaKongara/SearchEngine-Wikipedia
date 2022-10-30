@@ -13,7 +13,7 @@
 #include <queue>
 #include <stack>
 #include "OleanderStemmingLibrary/include/olestem/stemming/english_stem.h"
-#include "ThreadPool.h"
+#include "ThreadPool/ThreadPool.h"
 #include "LRU.h"
 
 using namespace std;
@@ -156,6 +156,8 @@ void split_query(const string& query, unordered_map<string, unordered_map<char, 
         } else
             subquery += query[idx++];
     }
+    if(query.size())
+        subquery += query.back();
     if(start_idx != idx) {
         if(field_unordered_map.find(cur_field) == field_unordered_map.end())
             field_unordered_map[cur_field] = "";
@@ -280,7 +282,7 @@ void get_tfidf_vectors(const unordered_map<string, unordered_map<char, unsigned 
 }
 
 int main(int argc, char **argv) {
-    if (argc < 3) {
+    if (argc < 2) {
         printf("ERR: Too Few Arguments\n");
         return 0;
     }
