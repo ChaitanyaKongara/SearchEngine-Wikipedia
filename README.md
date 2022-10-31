@@ -6,7 +6,7 @@ This Repository consists of code for building a search engine from scratch.
 
 ![screenshot](./SearchEngineDemo.gif)
 
-Wikipedia [Dump](https://dumps.wikimedia.org/enwiki/20210720/enwiki-20210720-pages-articles-multistream.xml.bz2)
+Wikipedia [Dump](https://dumps.wikimedia.org/enwiki/20220801/enwiki-20220801-pages-articles-multistream.xml.bz2)
 
 Building a Search Engine consists of 2 phases
 * Indexing Phase <br/>
